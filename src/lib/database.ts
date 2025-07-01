@@ -55,7 +55,7 @@ class DatabaseService {
       }
 
       // Use the userDataPath determined at module level
-      const dbPath = path.join(userDataPath, 'specforge.db')
+      const dbPath = path.join(userDataPath, 'ideagenius.db')
       
       console.log(`Initializing database at: ${dbPath}`)
       

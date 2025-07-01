@@ -97,7 +97,7 @@ class DatabaseService {
         fs.mkdirSync(userDataPath, { recursive: true })
       }
 
-      const dbPath = path.join(userDataPath, 'specforge.db')
+      const dbPath = path.join(userDataPath, 'ideagenius.db')
       console.log(`Initializing database at: ${dbPath}`)
       
       this.db = new Database(dbPath)

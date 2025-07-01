@@ -1,6 +1,6 @@
-# 🧠 SpecForge
+# 🧠 IdeaGenius
 
-SpecForge is a desktop productivity application that helps developers, founders, and product teams turn rough project ideas into complete, professional-grade Product Requirements Documents (PRDs). It uses AI agents, powered by LangChain and OpenAI, to analyze your initial thoughts, generate product ideas, recommend a tech stack, and then build out a full PRD.
+IdeaGenius is a desktop productivity application that helps developers, founders, and product teams turn rough project ideas into complete, professional-grade Product Requirements Documents (PRDs). It uses AI agents, powered by LangChain and OpenAI, to analyze your initial thoughts, generate product ideas, recommend a tech stack, and then build out a full PRD.
 
 ## 🚀 Features
 
@@ -65,7 +65,7 @@ SpecForge is a desktop productivity application that helps developers, founders,
 The project is organized as follows:
 
 ```
-specforge/
+ideagenius/
 ├── dist-electron/    # Compiled Electron main process code
 ├── electron/         # Electron main process source code (TypeScript)
 │   ├── main.ts

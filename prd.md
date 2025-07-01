@@ -1,8 +1,8 @@
-# 🧠 SpecForge — AI PRD & Requirements Assistant
+# 🧠 IdeaGenius — AI PRD & Requirements Assistant
 
 ## 📌 Overview
 
-SpecForge is a desktop productivity application that helps developers, founders, and product teams turn rough project ideas into complete, professional-grade Product Requirements Documents (PRDs). By analyzing base input files like prompts, user stories, or PDFs, it generates potential product ideas, allows refinement, and outputs fully customized PRDs. It supports default user preferences and integrates with automation workflows via LangGraph and N8N.
+IdeaGenius is a desktop productivity application that helps developers, founders, and product teams turn rough project ideas into complete, professional-grade Product Requirements Documents (PRDs). By analyzing base input files like prompts, user stories, or PDFs, it generates potential product ideas, allows refinement, and outputs fully customized PRDs. It supports default user preferences and integrates with automation workflows via LangGraph and N8N.
 
 ---
 
@@ -121,5 +121,5 @@ SpecForge is a desktop productivity application that helps developers, founders,
 
 ## 🔚 Final Notes
 
-SpecForge is designed to be the *“first stop”* in any serious project — helping you go from a messy prompt to a clear product vision in just minutes. It’s your co-pilot for product ideation and planning, built for desktop power users who want to move fast and start smart.
+IdeaGenius is designed to be the *“first stop”* in any serious project — helping you go from a messy prompt to a clear product vision in just minutes. It’s your co-pilot for product ideation and planning, built for desktop power users who want to move fast and start smart.
 

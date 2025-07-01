@@ -146,7 +146,7 @@ function ProjectWorkspace({ project, onCompleteStep, onProjectUpdate, onStepUpda
         <div className="space-y-6">
           <div className="space-y-4">
             <h2 className="text-3xl font-bold tracking-tight">
-              Welcome to SpecForge
+              Welcome to IdeaGenius
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
               Turn your ideas into complete, professional-grade Product Requirements Documents.
@@ -381,7 +381,7 @@ function App() {
       <div data-slot="app" className="min-h-screen bg-background flex flex-col">
         <header className="border-b">
           <div data-slot="header" className="container mx-auto max-w-none flex h-16 items-center justify-between px-6">
-            <h1 className="text-2xl font-bold">SpecForge</h1>
+            <h1 className="text-2xl font-bold">IdeaGenius</h1>
             <ThemeToggle />
           </div>
         </header>
