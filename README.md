@@ -1,58 +1,86 @@
 # 🧠 SpecForge
 
-SpecForge is a desktop productivity application that helps developers, founders, and product teams turn rough project ideas into complete, professional-grade Product Requirements Documents (PRDs).
+SpecForge is a desktop productivity application that helps developers, founders, and product teams turn rough project ideas into complete, professional-grade Product Requirements Documents (PRDs). It uses AI agents, powered by LangChain and OpenAI, to analyze your initial thoughts, generate product ideas, recommend a tech stack, and then build out a full PRD.
 
 ## 🚀 Features
 
-- 📝 Input Parsing: Accept input as PDF, Markdown, or plain text
-- 💡 Idea Generation: Generate and refine product ideas
-- 🎨 Customizable Preferences: Persist settings for themes, tech stack, and more
-- 📄 PRD Generation: Create comprehensive product requirement documents
-- 🔄 Export & Automation: Support for multiple export formats and workflow automation
+-   **AI-Powered Analysis:** Takes your raw ideas (text or files) and generates distinct product concepts.
+-   **Tech Stack Recommendation:** Suggests a suitable technology stack for your project.
+-   **Automated PRD Generation:** Creates a comprehensive PRD with sections like:
+    -   Elevator Pitch & Summary
+    -   User Personas
+    -   Key Features
+    -   UI/UX Design Concepts
+    -   Proposed File Structure
+-   **Local First:** Your projects and data are stored locally in a SQLite database.
 
 ## 🛠️ Tech Stack
 
-- Electron
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- ShadcnUI Components
+-   **Framework:** Electron, React, Vite, TypeScript
+-   **AI:** LangChain.js, LangGraph, OpenAI
+-   **Styling:** Tailwind CSS, shadcn/ui
+-   **Database:** better-sqlite3
+-   **Packaging:** electron-builder
 
-## 📋 Prerequisites
+## 📋 Getting Started
 
-- Node.js 18.x or later
-- npm 9.x or later
+### Prerequisites
 
-## 🏗️ Installation
+-   Node.js (v18.x or later recommended)
+-   npm (v9.x or later recommended)
+-   An [OpenAI API key](https://platform.openai.com/account/api-keys).
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+### Installation & Running
 
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+
+1.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+2.  **Set up environment variables:**
+
+    Create a file named `.env` in the root of the project and add your OpenAI API key:
+
+    ```
+    OPENAI_API_KEY="your_openai_api_key_here"
+    ```
+
+    The application uses `dotenv` to load this key for the AI services.
+
+3.  **Start the development server:**
+    ```bash
+    npm run dev
+    ```
 
 ## 🔧 Available Scripts
 
-- `npm run dev` - Start the development server
-- `npm run build` - Build the application for production
-- `npm run preview` - Preview the production build
-- `npm run lint` - Run ESLint to check code quality
+-   `npm run dev`: Starts the application in development mode with hot-reloading.
+-   `npm run build`: Compiles and builds the application for production.
+-   `npm run lint`: Lints the source code using ESLint.
+-   `npm run preview`: Previews the production build locally.
 
 ## 🏗️ Project Structure
 
+The project is organized as follows:
+
 ```
 specforge/
-├── electron/           # Electron main process files
+├── dist-electron/    # Compiled Electron main process code
+├── electron/         # Electron main process source code (TypeScript)
+│   ├── main.ts
+│   └── preload.ts
 ├── src/
-│   ├── components/    # React components
-│   ├── lib/          # Utility functions
-│   ├── App.tsx       # Main application component
-│   └── main.tsx      # Application entry point
-├── public/           # Static assets
-└── dist/            # Production build output
+│   ├── ai/             # AI agent graphs and logic (LangChain)
+│   │   ├── analysisGraph.ts
+│   │   └── prdGraph.ts
+│   ├── components/     # React UI components
+│   ├── hooks/          # Custom React hooks
+│   ├── lib/            # Core libraries (database, utils)
+│   │   └── database.ts # better-sqlite3 service
+│   ├── types/          # TypeScript type definitions
+│   ├── App.tsx         # Main React application component
+│   └── main.tsx        # React application entry point
+├── package.json      # Project metadata and dependencies
+└── vite.config.ts    # Vite configuration
 ```
