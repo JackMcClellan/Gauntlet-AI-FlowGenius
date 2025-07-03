@@ -1,6 +1,13 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 
+// ⚠️ WARNING: This file should NOT be used in the renderer process!
+// better-sqlite3 is a native module that can only run in the main process.
+// Use IPC handlers instead: 
+// - 'settings-get-default-tech-stack' 
+// - 'settings-set-default-tech-stack'
+// - Other database operations via their respective IPC channels
+
 // Handle both main and renderer process
 let userDataPath: string = './data' // Default fallback
 
@@ -40,6 +47,21 @@ export interface ProjectFile {
   type: string
   file_path: string
   created_at: string
+}
+
+export interface Settings {
+  key: string
+  value: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DefaultTechStack {
+  frontend: string
+  backend: string
+  database: string
+  hosting: string
+  additional: string
 }
 
 class DatabaseService {
@@ -133,6 +155,17 @@ class DatabaseService {
       )
     `)
     console.log('Project files table ready')
+
+    // Create settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `)
+    console.log('Settings table ready')
 
     // Create indexes for better performance
     this.db.exec(`
@@ -368,6 +401,76 @@ class DatabaseService {
   save() {
     this.checkpoint()
     console.log('Database saved to disk')
+  }
+
+  // Settings CRUD operations
+  setSetting(key: string, value: any): boolean {
+    const now = new Date().toISOString()
+    const serializedValue = typeof value === 'object' ? JSON.stringify(value) : String(value)
+
+    const stmt = this.db.prepare(`
+      INSERT INTO settings (key, value, created_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET 
+        value = excluded.value,
+        updated_at = excluded.updated_at
+    `)
+    
+    const result = stmt.run(key, serializedValue, now, now)
+    const success = result.changes > 0
+    
+    if (success) {
+      this.checkpoint()
+      console.log(`Updated setting: ${key}`)
+    }
+    
+    return success
+  }
+
+  getSetting(key: string): string | null {
+    const stmt = this.db.prepare('SELECT value FROM settings WHERE key = ?')
+    const result = stmt.get(key) as { value: string } | undefined
+    return result?.value || null
+  }
+
+  getAllSettings(): Record<string, string> {
+    const stmt = this.db.prepare('SELECT key, value FROM settings')
+    const results = stmt.all() as { key: string; value: string }[]
+    
+    return results.reduce((acc, { key, value }) => {
+      acc[key] = value
+      return acc
+    }, {} as Record<string, string>)
+  }
+
+  deleteSetting(key: string): boolean {
+    const stmt = this.db.prepare('DELETE FROM settings WHERE key = ?')
+    const result = stmt.run(key)
+    const success = result.changes > 0
+    
+    if (success) {
+      this.checkpoint()
+      console.log(`Deleted setting: ${key}`)
+    }
+    
+    return success
+  }
+
+  // Convenience methods for Default Tech Stack
+  setDefaultTechStack(techStack: DefaultTechStack): boolean {
+    return this.setSetting('default-tech-stack', techStack)
+  }
+
+  getDefaultTechStack(): DefaultTechStack | null {
+    const value = this.getSetting('default-tech-stack')
+    if (!value) return null
+    
+    try {
+      return JSON.parse(value) as DefaultTechStack
+    } catch (error) {
+      console.error('Failed to parse default tech stack:', error)
+      return null
+    }
   }
 
   close() {

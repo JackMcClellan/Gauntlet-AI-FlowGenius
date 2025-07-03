@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Button } from '../ui/button'
-import { Card } from '../ui/card'
-import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
-import { UploadIcon, XIcon, FileIcon, ImageIcon } from 'lucide-react'
-import { AutoSaveProvider, AutoSaveField, AutoSaveIndicator } from '../AutoSave'
-import type { AgentState } from '../../ai/analysisGraph'
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { AutoSaveProvider, AutoSaveField, AutoSaveIndicator } from '@/components/AutoSave'
+import { getDefaultTechStack } from '@/components/Settings'
+import type { AgentState } from '@/ai/analysisGraph'
 
 interface Project {
   id: string
@@ -22,19 +22,10 @@ interface ProjectStep {
   content?: any
 }
 
-interface UploadedFile {
-  id: string
-  name: string
-  size: number
-  type: string
-  file: File
-}
-
 interface InputAnalysisData {
   projectName: string
   textInput: string
-  files: UploadedFile[]
-  analysis?: AgentState
+  analysis?: Partial<AgentState>
 }
 
 export function InputAnalysis({ 
@@ -54,8 +45,6 @@ export function InputAnalysis({
   
   const [projectName, setProjectName] = useState(project.name)
   const [textInput, setTextInput] = useState(stepContent.textInput || '')
-  const [files, setFiles] = useState<UploadedFile[]>(stepContent.files || [])
-  const [isDragOver, setIsDragOver] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   // Sync component state when project changes
@@ -64,64 +53,7 @@ export function InputAnalysis({
     const currentStep = project.steps.find(step => step.id.includes('step_1'))
     const stepContent = currentStep?.content || {}
     setTextInput(stepContent.textInput || '')
-    setFiles(stepContent.files || [])
   }, [project.id]) // Only trigger when project ID changes
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    
-    const droppedFiles = Array.from(e.dataTransfer.files)
-    addFiles(droppedFiles)
-  }, [])
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files)
-      addFiles(selectedFiles)
-    }
-  }
-
-  const addFiles = (newFiles: File[]) => {
-    const uploadedFiles: UploadedFile[] = newFiles.map(file => ({
-      id: `${Date.now()}-${Math.random()}`,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      file
-    }))
-    
-    setFiles(prev => [...prev, ...uploadedFiles])
-  }
-
-  const removeFile = (fileId: string) => {
-    setFiles(prev => prev.filter(file => file.id !== fileId))
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
-
-  const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) {
-      return <ImageIcon className="size-4" />
-    }
-    return <FileIcon className="size-4" />
-  }
 
   const ipc = (window as any).require('electron').ipcRenderer
 
@@ -129,10 +61,13 @@ export function InputAnalysis({
     try {
       setIsAnalyzing(true)
 
-      // Call AI analysis via IPC
-      const result: AgentState = await ipc.invoke('ai-analyze-input', {
+      // Get user's default tech stack preferences
+      const defaultTechStack = await getDefaultTechStack()
+
+      // Call AI analysis via IPC, including default tech stack
+      const result: Partial<AgentState> = await ipc.invoke('analyze-project', {
         textInput,
-        files: files.map(f => ({ path: (f.file as any).path, name: f.name })) // Pass file paths
+        defaultTechStack
       })
       console.log('Analysis result:', result)
 
@@ -140,7 +75,6 @@ export function InputAnalysis({
       const completeData: InputAnalysisData = {
         projectName,
         textInput,
-        files,
         analysis: result
       }
       
@@ -155,8 +89,8 @@ export function InputAnalysis({
     }
   }
 
-  // Updated validation: requires project name AND (text input OR files)
-  const isFormValid = projectName.trim() && (textInput.trim() || files.length > 0)
+  // Updated validation: requires project name AND text input
+  const isFormValid = projectName.trim() && textInput.trim()
 
   // Auto-save handler for project name
   const handleNameSave = async (name: string) => {
@@ -170,28 +104,13 @@ export function InputAnalysis({
     if (currentStep && onStepUpdate) {
       const updatedContent = {
         ...stepContent,
-        textInput: text,
-        files: files // Keep current files
+        textInput: text
       }
       
       console.log('Saving text input to step:', currentStep.id, text)
       await onStepUpdate(currentStep.id, updatedContent)
     }
   }
-
-  // Auto-save when files change
-  useEffect(() => {
-    if (currentStep && onStepUpdate && files.length !== (stepContent.files || []).length) {
-      const updatedContent = {
-        ...stepContent,
-        textInput: textInput,
-        files: files
-      }
-      
-      console.log('Auto-saving files to step:', currentStep.id, files.length)
-      onStepUpdate(currentStep.id, updatedContent)
-    }
-  }, [files, currentStep, onStepUpdate, stepContent, textInput])
 
   return (
     <AutoSaveProvider defaultDebounceMs={1000}>
@@ -252,85 +171,6 @@ export function InputAnalysis({
               <p className="text-xs text-muted-foreground">
                 Provide as much detail as possible about what you want to build.
               </p>
-            </div>
-
-            {/* File Upload Area */}
-            <div className="space-y-4">
-              <label className="text-sm font-medium">
-                Supporting Documents <span className="text-muted-foreground">(Optional)</span>
-              </label>
-              
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  isDragOver
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <UploadIcon className="size-10 mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-medium mb-2">Drop your files here</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  PDF, DOC, TXT, MD or images (max. 10MB each)
-                </p>
-                <Button variant="outline" asChild>
-                  <label>
-                    Select files
-                    <input
-                      type="file"
-                      multiple
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.gif"
-                    />
-                  </label>
-                </Button>
-              </div>
-
-              {/* Uploaded Files List */}
-              {files.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Uploaded Files ({files.length})</h4>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFiles([])}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      Remove all
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {files.map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center gap-3 p-3 border rounded-lg bg-muted/20"
-                      >
-                        <div className="text-muted-foreground">
-                          {getFileIcon(file.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(file.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <XIcon className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Submit Button */}

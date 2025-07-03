@@ -2,9 +2,9 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
 import fs from 'fs'
-import { analyzeProjectWithManager } from "../src/ai/analysisGraph"
-import { generatePrd } from "../src/ai/prdGraph"
-import fsPromises from 'fs/promises'
+
+import { analyzeProjectWithManager, AgentState } from "../src/ai/analysisGraph"
+import { generatePrd, regeneratePrdSection, generateGettingStartedPrompt } from "../src/ai/prdGraph"
 
 /**
  * Normalizes the messy, nested, and inconsistent output from the AI into a clean,
@@ -18,7 +18,6 @@ function normalizePrdData(prdResult: any): any {
   const features = prdResult.features?.features || prdResult.features?.KeyFeatures || []
   const techStack = prdResult.techStack?.tech_stack || prdResult.techStack || {}
   const uiDesign = prdResult.uiDesign?.UI_UX_Design || prdResult.uiDesign || {}
-  const fileStructure = prdResult.fileStructure || {}
 
   // The AI sometimes returns a summary *object* instead of a string. Flatten it.
   const flatSummary = typeof summary.summary === 'object' && summary.summary !== null
@@ -40,9 +39,6 @@ function normalizePrdData(prdResult: any): any {
       principles: uiDesign.principles || uiDesign.Core_Design_Principles || [],
       palette: uiDesign.palette || uiDesign.Color_Palette_Suggestions || {},
       screens: uiDesign.screens || uiDesign.Key_Screens || [],
-    },
-    fileStructure: {
-      fileTree: fileStructure.fileTree || fileStructure.FileStructure || JSON.stringify(fileStructure, null, 2),
     },
     // Explicitly exclude the 'messages' array which contains non-serializable class instances
   }
@@ -148,6 +144,16 @@ class DatabaseService {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+      )
+    `)
+
+    // Create settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
       )
     `)
 
@@ -376,6 +382,52 @@ class DatabaseService {
     }))
   }
 
+  // Settings CRUD operations
+  setSetting(key: string, value: any): boolean {
+    const now = new Date().toISOString()
+    const serializedValue = typeof value === 'object' ? JSON.stringify(value) : String(value)
+
+    const stmt = this.db.prepare(`
+      INSERT INTO settings (key, value, created_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET 
+        value = excluded.value,
+        updated_at = excluded.updated_at
+    `)
+    
+    const result = stmt.run(key, serializedValue, now, now)
+    const success = result.changes > 0
+    
+    if (success) {
+      console.log(`Updated setting: ${key}`)
+    }
+    
+    return success
+  }
+
+  getSetting(key: string): string | null {
+    const stmt = this.db.prepare('SELECT value FROM settings WHERE key = ?')
+    const result = stmt.get(key) as { value: string } | undefined
+    return result?.value || null
+  }
+
+  // Convenience methods for Default Tech Stack
+  setDefaultTechStack(techStack: any): boolean {
+    return this.setSetting('default-tech-stack', techStack)
+  }
+
+  getDefaultTechStack(): any {
+    const value = this.getSetting('default-tech-stack')
+    if (!value) return null
+    
+    try {
+      return JSON.parse(value)
+    } catch (error) {
+      console.error('Failed to parse default tech stack:', error)
+      return null
+    }
+  }
+
   close() {
     try {
       console.log('Closing database...')
@@ -421,6 +473,8 @@ function createWindow() {
       contextIsolation: false,
     },
   })
+
+  win.webContents.openDevTools()
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
@@ -472,7 +526,39 @@ ipcMain.handle('db-get-all-projects', async () => {
   try {
     if (!db) return []
     await db.initialize() // Ensure initialized
-    return db.getAllProjectsWithSteps()
+    const projects = db.getAllProjectsWithSteps()
+    
+    // Migrate projects to ensure they have all 5 steps
+    const migratedProjects = projects.map(project => {
+      if (project.steps.length < 5) {
+        // Check if step_5 is missing
+        const hasStep5 = project.steps.some(step => step.id.includes('step_5'))
+        if (!hasStep5) {
+          // Add step_5 to the project
+          const newStep = {
+            id: `${project.id}_step_5`,
+            project_id: project.id,
+            title: 'Project Finalization',
+            status: 'pending' as const,
+            step_order: 5
+          }
+          
+          try {
+            const createdStep = db.createProjectStep(newStep)
+            return {
+              ...project,
+              steps: [...project.steps, createdStep]
+            }
+          } catch (err) {
+            console.error('Failed to create step_5 for project:', project.id, err)
+            return project
+          }
+        }
+      }
+      return project
+    })
+    
+    return migratedProjects
   } catch (error) {
     console.error('Failed to get projects:', error)
     throw error
@@ -516,6 +602,13 @@ ipcMain.handle('db-create-project', async (_, projectData) => {
         title: 'PRD Generation',
         status: 'pending' as const,
         step_order: 4
+      },
+      {
+        id: `${project.id}_step_5`,
+        project_id: project.id,
+        title: 'Project Finalization',
+        status: 'pending' as const,
+        step_order: 5
       }
     ]
 
@@ -576,37 +669,54 @@ ipcMain.handle('db-save', async () => {
   }
 })
 
-// Other IPC handlers
-ipcMain.handle("ai-analyze-input", async (_, payload) => {
+// Settings IPC handlers
+ipcMain.handle('settings-get-default-tech-stack', async () => {
   try {
-    await db.initialize()
-    const { textInput, files } = payload as {
-      textInput: string
-      files: { name: string; path: string; type: string }[]
-    }
+    if (!db) return null
+    await db.initialize() // Ensure initialized
+    return db.getDefaultTechStack()
+  } catch (error) {
+    console.error('Failed to get default tech stack:', error)
+    throw error
+  }
+})
 
-    // 1. Build a single context string from text and file contents
-    let combinedContext = textInput
-    for (const file of files) {
-      try {
-        if (file.path && (file.type.startsWith("text/") || file.type.includes("markdown"))) {
-          const fileContent = await fsPromises.readFile(file.path, "utf8")
-          combinedContext += `\n\n--- Content from ${file.name} ---\n${fileContent}`
-        }
-      } catch (e) {
-        console.warn(`Could not read file ${file.name}, skipping. Error:`, e)
+ipcMain.handle('settings-set-default-tech-stack', async (_, techStack) => {
+  try {
+    if (!db) throw new Error('Database not initialized')
+    await db.initialize() // Ensure initialized
+    return db.setDefaultTechStack(techStack)
+  } catch (error) {
+    console.error('Failed to set default tech stack:', error)
+    throw error
+  }
+})
+
+// Other IPC handlers
+ipcMain.handle("analyze-project", async (event, payload) => {
+  try {
+    const { textInput, defaultTechStack } = payload as {
+      textInput: string
+      defaultTechStack?: {
+        frontend: string
+        backend: string
+        database: string
+        hosting: string
+        additional: string
       }
     }
 
-    const context = combinedContext.slice(0, 16000) // Truncate for safety
+    // Truncate for safety
+    const context = textInput.slice(0, 16000)
 
-    // 2. Call the AI analysis graph
-    const analysisResult = await analyzeProjectWithManager(context)
+    // Run the LangChain graph analysis with default tech stack
+    const result: AgentState = await analyzeProjectWithManager(context, defaultTechStack)
 
-    // 3. Return the results to the UI
+    // Return a serializable part of the result to the UI
     return {
-      ideas: analysisResult.ideas,
-      techStack: analysisResult.techStack,
+      context: result.context,
+      ideas: result.ideas,
+      techStack: result.techStack,
     }
   } catch (error) {
     console.error("AI analysis failed:", error)
@@ -617,13 +727,19 @@ ipcMain.handle("ai-analyze-input", async (_, payload) => {
 ipcMain.handle("ai-generate-prd", async (_, payload) => {
   try {
     await db.initialize()
-    const { refinedIdea, originalContext } = payload as {
+    const { refinedIdea, originalContext, refinedTechStack } = payload as {
       refinedIdea: string
       originalContext: string
+      refinedTechStack?: {
+        frontend: string
+        backend: string
+        database: string
+        hosting: string
+      }
     }
 
-    // Call the PRD generation graph
-    const prdResult = await generatePrd(refinedIdea, originalContext)
+    // Call the PRD generation graph with refined tech stack
+    const prdResult = await generatePrd(refinedIdea, originalContext, refinedTechStack)
 
     // Normalize the messy AI output into a clean, predictable, serializable structure
     const normalizedResult = normalizePrdData(prdResult)
@@ -634,6 +750,51 @@ ipcMain.handle("ai-generate-prd", async (_, payload) => {
   } catch (error) {
     console.error("PRD generation failed:", error)
     throw new Error("PRD generation failed. Please check the main process logs.")
+  }
+})
+
+ipcMain.handle("ai-regenerate-prd-section", async (_, payload) => {
+  try {
+    await db.initialize()
+    const { refinedIdea, originalContext, refinedTechStack, sectionKey } = payload as {
+      refinedIdea: string
+      originalContext: string
+      refinedTechStack?: {
+        frontend: string
+        backend: string
+        database: string
+        hosting: string
+      }
+      sectionKey: string
+    }
+
+    // Call the individual section regeneration function
+    const sectionResult = await regeneratePrdSection(sectionKey, refinedIdea, originalContext, refinedTechStack)
+
+    // Return the section result to the UI
+    return sectionResult
+    
+  } catch (error) {
+    console.error(`PRD section regeneration failed for ${payload.sectionKey}:`, error)
+    throw new Error(`PRD section regeneration failed for ${payload.sectionKey}. Please check the main process logs.`)
+  }
+})
+
+ipcMain.handle("ai-generate-getting-started", async (_, payload) => {
+  try {
+    await db.initialize()
+    const { prdData } = payload as {
+      prdData: any
+    }
+
+    // Call the getting started prompt generation function
+    const prompt = await generateGettingStartedPrompt(prdData)
+
+    return prompt
+    
+  } catch (error) {
+    console.error("Getting started prompt generation failed:", error)
+    throw new Error("Getting started prompt generation failed. Please check the main process logs.")
   }
 })
 

@@ -7,7 +7,6 @@ export interface AnalysisResult {
 }
 
 export interface TechStackRecommendation {
-  bestIdea: string
   frontend: string | DetailedTechSection
   backend: string | DetailedTechSection  
   database: string | DetailedTechSection
@@ -32,7 +31,7 @@ export interface PRDResult {
   features: Feature[]
   techStack: PRDTechStack
   uiDesign: UIDesign
-  fileStructure: FileStructure
+  implementation?: ImplementationPlan
 }
 
 export interface PRDSummary {
@@ -81,9 +80,33 @@ export interface Screen {
   description: string
 }
 
-export interface FileStructure {
-  fileTree: string
+export interface ImplementationPlan {
+  timeline: Timeline[]
+  resources: ResourceAllocation[]
+  stakeholders: StakeholderWorkflow[]
 }
+
+export interface Timeline {
+  phase: string
+  duration: string
+  description: string
+  deliverables: string[]
+}
+
+export interface ResourceAllocation {
+  role: string
+  commitment: string
+  responsibilities: string[]
+}
+
+export interface StakeholderWorkflow {
+  stakeholder: string
+  communication: string
+  frequency: string
+  deliverables: string[]
+}
+
+
 
 // Step content interfaces for consistent storage
 export interface Step1Content {

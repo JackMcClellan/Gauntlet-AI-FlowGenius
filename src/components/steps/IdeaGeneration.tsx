@@ -111,13 +111,6 @@ export function IdeaGeneration({ project, onCompleteStep, onStepUpdate }: IdeaGe
               ) : (
                 /* Handle complex format (object values) */
                 <div className="space-y-4">
-                  {analysisResult.techStack.bestIdea && (
-                    <div>
-                      <p className="font-bold text-base mb-2">Best Idea</p>
-                      <p className="text-sm text-muted-foreground">{analysisResult.techStack.bestIdea}</p>
-                    </div>
-                  )}
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Frontend */}
                     {analysisResult.techStack.frontend && (

@@ -4,6 +4,7 @@ import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { Input } from '../ui/input'
 import { AutoSaveProvider, AutoSaveField, AutoSaveIndicator } from '../AutoSave'
+import { getDefaultTechStack } from '../Settings'
 import type { UIProject } from '../../hooks/useDatabase'
 import type { TechStackRecommendation } from '../../types/ai'
 
@@ -19,7 +20,6 @@ export function IdeaRefinement({ project, onCompleteStep, onStepUpdate }: IdeaRe
   
   const initialIdea = ideaGenStep?.content?.selectedIdea || ''
   const initialTechStack: TechStackRecommendation = ideaGenStep?.content?.analysis?.techStack || {
-    bestIdea: '',
     frontend: '',
     backend: '',
     database: '',
@@ -29,9 +29,30 @@ export function IdeaRefinement({ project, onCompleteStep, onStepUpdate }: IdeaRe
 
   const [refinedIdea, setRefinedIdea] = useState(stepContent.refinedIdea || initialIdea)
   const [refinedTechStack, setRefinedTechStack] = useState<TechStackRecommendation>(stepContent.refinedTechStack || initialTechStack)
+  const [isLoadingDefaults, setIsLoadingDefaults] = useState(false)
 
   const handleTechStackChange = (field: string, value: string) => {
     setRefinedTechStack((prev: any) => ({ ...prev, [field]: value }))
+  }
+
+  const handleAutopopulateFromPreferred = async () => {
+    setIsLoadingDefaults(true)
+    try {
+      const defaultTechStack = await getDefaultTechStack()
+      
+      // Only override fields that have values in the default settings
+      setRefinedTechStack(prev => ({
+        frontend: defaultTechStack.frontend || prev.frontend,
+        backend: defaultTechStack.backend || prev.backend,
+        database: defaultTechStack.database || prev.database,
+        hosting: defaultTechStack.hosting || prev.hosting,
+        // Note: additional field from settings is not used in TechStackRecommendation
+      }))
+    } catch (error) {
+      console.error('Failed to load default tech stack:', error)
+    } finally {
+      setIsLoadingDefaults(false)
+    }
   }
   
   const handleSave = async () => {
@@ -100,7 +121,18 @@ export function IdeaRefinement({ project, onCompleteStep, onStepUpdate }: IdeaRe
               </div>
 
               <div className="space-y-4 pt-4">
-                <label className="text-sm font-medium">Your Refined Tech Stack</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Your Refined Tech Stack</label>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAutopopulateFromPreferred}
+                    disabled={isLoadingDefaults}
+                  >
+                    {isLoadingDefaults ? 'Loading...' : 'Autopopulate from Preferred'}
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <label htmlFor="frontend" className="text-xs text-muted-foreground">Frontend</label>
