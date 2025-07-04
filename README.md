@@ -49,7 +49,7 @@ IdeaGenius is a comprehensive desktop productivity application that transforms r
 ### **Development**
 - **Build Tool:** Vite with Electron integration
 - **Package Manager:** npm
-- **Distribution:** electron-builder for multi-platform builds
+- **Distribution:** electron-builder for multi-platform builds (M4 Mac optimized)
 - **Linting:** ESLint with TypeScript support
 
 ## 📋 Getting Started
@@ -59,6 +59,7 @@ IdeaGenius is a comprehensive desktop productivity application that transforms r
 - **Node.js** (v18.x or later recommended)
 - **npm** (v9.x or later recommended)
 - **OpenAI API Key** - Get yours from [OpenAI Platform](https://platform.openai.com/account/api-keys)
+- **M4 Mac** (or other Mac with ARM64 architecture) - Optimized builds available
 
 ### Installation & Setup
 
@@ -80,18 +81,69 @@ IdeaGenius is a comprehensive desktop productivity application that transforms r
    npm run dev
    ```
 
+## 🏗️ Building the Application
+
+### **For M4 Mac (Recommended)**
+
+To build IdeaGenius specifically for M4 Mac with optimal ARM64 performance:
+
+```bash
+npm run build:mac-arm64
+```
+
+This will create:
+- `dist/IdeaGenius-0.1.0-arm64.dmg` - DMG installer for M4 Mac
+- `dist/IdeaGenius-0.1.0-arm64-mac.zip` - ZIP file for M4 Mac
+
+### **For All Mac Architectures**
+
+To build for both Intel and ARM64 Macs:
+
+```bash
+npm run build:mac
+```
+
+### **For All Platforms**
+
+To build for Windows, macOS, and Linux:
+
+```bash
+npm run build
+```
+
+## 📦 Installing the Application
+
+### **Option 1: Using DMG File (Recommended)**
+
+1. **Download** the `IdeaGenius-0.1.0-arm64.dmg` file from the `dist/` folder after building
+2. **Double-click** the DMG file to mount it
+3. **Drag** the IdeaGenius app to your Applications folder
+4. **Launch** from Applications or Spotlight
+
+### **Option 2: Using ZIP File**
+
+1. **Download** the `IdeaGenius-0.1.0-arm64-mac.zip` file from the `dist/` folder
+2. **Unzip** the file
+3. **Move** the IdeaGenius app to your Applications folder
+4. **Launch** from Applications or Spotlight
+
+### **Security Note**
+
+Since the app is not code-signed, you may see a security warning on first launch:
+1. **Control-click** the app and select "Open"
+2. **Click "Open"** in the security dialog
+3. The app will launch and be trusted for future use
+
 ## 🔧 Available Scripts
 
 - `npm run dev` - Start the application in development mode with hot-reloading
-- `npm run build` - Build the application for production
-- `npm run build:electron` - Compile Electron main process TypeScript
-- `npm run dist` - Build and package the application for distribution
-- `npm run dist:mac` - Build and package for macOS
-- `npm run dist:mac-arm64` - Build and package for macOS ARM64
+- `npm run build` - Build the application for production (all platforms)
+- `npm run build:mac` - Build and package for macOS (all Mac architectures)
+- `npm run build:mac-arm64` - Build and package specifically for M4 Mac (ARM64)
 - `npm run lint` - Run ESLint on the source code
 - `npm run preview` - Preview the production build locally
 
-## 🏗️ Project Structure
+## 📁 Project Structure
 
 ```
 ideagenius/
